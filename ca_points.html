@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Team Points Table</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .teamA {
+      background-color: lightgreen; /* Changed to light green */
+    }
+    .teamB {
+      background-color: lightblue; /* Changed to light blue */
+    }
+    .teamC {
+      background-color: lightcoral; /* Changed to light red */
+    }
+    .center {
+      text-align: center;
+    }
+    .underline {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<h2 class="center underline">TOTAL TEAM POINTS</h2>
+
+<table id="totalPointsTable" class="center">
+  <tr>
+    <th>Team</th>
+    <th>Total Points</th>
+  </tr>
+  <tr>
+    <td>Team A</td>
+    <td id="totalTeamAPoints">0</td>
+  </tr>
+  <tr>
+    <td>Team B</td>
+    <td id="totalTeamBPoints">0</td>
+  </tr>
+  <tr>
+    <td>Team C</td>
+    <td id="totalTeamCPoints">0</td>
+  </tr>
+</table>
+
+<br>
+
+<h2 class="center underline">Team Members Points</h2>
+
+<table id="pointsTable" class="center">
+  <tr>
+    <th>S.No</th>
+    <th>Name</th>
+    <th>Team</th>
+    <th>Total Points</th>
+  </tr>
+</table>
+
+<form id="addPlayerForm">
+  <label for="playerName">Player Name:</label>
+  <input type="text" id="playerName" name="playerName" required><br><br>
+
+  <label for="team">Team:</label>
+  <select id="team" name="team" required>
+    <option value="Team A">Team A</option>
+    <option value="Team B">Team B</option>
+    <option value="Team C">Team C</option>
+  </select><br><br>
+
+  <label for="points">Points:</label>
+  <input type="number" id="points" name="points" required><br><br>
+
+  <button type="submit">Add Player</button>
+</form>
+
+<button id="deleteButton">Delete</button>
+<button id="undoButton">Undo</button>
+<button id="redoButton">Redo</button>
+
+<script>
+  var lastAction; // Variable to store the last action performed
+  var lastDeletedRow; // Variable to store the last deleted row
+  var lastAddedRow; // Variable to store the last added row
+
+  // Load players from localStorage on page load
+  document.addEventListener("DOMContentLoaded", function() {
+    loadPlayers();
+    updateTotalPoints();
+  });
+
+  // Add event listener to the form for adding new players
+  document.getElementById("addPlayerForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+    var playerName = document.getElementById("playerName").value;
+    var team = document.getElementById("team").value;
+    var points = document.getElementById("points").value;
+    addPlayer(playerName, team, points);
+    this.reset();
+    lastAction = "add"; // Store the last action as adding a player
+    savePlayers();
+    updateTotalPoints();
+  });
+
+  // Function to add a new player to the table or update points if already exists
+  function addPlayer(name, team, points) {
+    var table = document.getElementById("pointsTable");
+    var rows = table.rows;
+    for (var i = 1; i < rows.length; i++) {
+      var cells = rows[i].cells;
+      if (cells[1].innerText === name && cells[2].innerText === team) {
+        // Player already exists, update points
+        cells[3].innerText = parseInt(cells[3].innerText) + parseInt(points);
+        sortTableByPoints(); // Re-sort the table
+        savePlayers();
+        updateTotalPoints();
+        return; // Exit the function
+      }
+    }
+    // If player doesn't exist, add as a new player
+    var row = table.insertRow(-1);
+    var cells = [row.insertCell(0), row.insertCell(1), row.insertCell(2), row.insertCell(3)];
+    cells[0].innerText = table.rows.length - 1;
+    cells[1].innerText = name;
+    cells[2].innerText = team;
+    cells[3].innerText = points;
+
+    // Add class for background color based on team
+    row.classList.add(getTeamClass(team));
+
+    // Sort the table rows by total points
+    sortTableByPoints();
+    savePlayers();
+    updateTotalPoints();
+
+    // Store the added row for redo functionality
+    lastAddedRow = row.outerHTML;
+  }
+
+  // Function to save players to localStorage
+  function savePlayers() {
+    var players = [];
+    var rows = document.getElementById("pointsTable").rows;
+    for (var i = 1; i < rows.length; i++) {
+      var cells = rows[i].cells;
+      var player = {
+        name: cells[1].innerText,
+        team: cells[2].innerText,
+        points: cells[3].innerText
+      };
+      players.push(player);
+    }
+    localStorage.setItem("players", JSON.stringify(players));
+  }
+
+  // Function to load players from localStorage
+  function loadPlayers() {
+    var players = JSON.parse(localStorage.getItem("players"));
+    if (players) {
+      players.forEach(function(player) {
+        addPlayer(player.name, player.team, player.points);
+      });
+    }
+  }
+
+  // Function to update total points for each team
+  function updateTotalPoints() {
+    var totalTeamAPoints = 0;
+    var totalTeamBPoints = 0;
+    var totalTeamCPoints = 0;
+    var rows = document.getElementById("pointsTable").rows;
+    for (var i = 1; i < rows.length; i++) {
+      var cells = rows[i].cells;
+      var points = parseInt(cells[3].innerText);
+      switch (cells[2].innerText) {
+        case "Team A":
+          totalTeamAPoints += points;
+          break;
+        case "Team B":
+          totalTeamBPoints += points;
+          break;
+        case "Team C":
+          totalTeamCPoints += points;
+          break;
+      }
+    }
+    document.getElementById("totalTeamAPoints").innerText = totalTeamAPoints;
+    document.getElementById("totalTeamBPoints").innerText = totalTeamBPoints;
+    document.getElementById("totalTeamCPoints").innerText = totalTeamCPoints;
+  }
+
+  // Function to sort the table rows by total points
+  function sortTableByPoints() {
+    var table = document.getElementById("pointsTable");
+    var rows = Array.from(table.rows).slice(1);
+    rows.sort((a, b) => parseInt(b.cells[3].innerText) - parseInt(a.cells[3].innerText));
+    rows.forEach((row, index) => {
+      table.appendChild(row);
+      row.cells[0].innerText = index + 1;
+    });
+  }
+
+  // Function to get the CSS class for the team
+  function getTeamClass(team) {
+    switch (team) {
+      case "Team A":
+        return "teamA";
+      case "Team B":
+        return "teamB";
+      case "Team C":
+        return "teamC";
+      default:
+        return "";
+    }
+  }
+
+  // Add event listener to the delete button
+  document.getElementById("deleteButton").addEventListener("click", function() {
+    var table = document.getElementById("pointsTable");
+    if (table.rows.length > 1) {
+      lastAction = "delete"; // Store the last action as deleting a player
+      lastDeletedRow = table.rows[table.rows.length - 1].outerHTML; // Store the last deleted row
+      table.deleteRow(-1);
+      savePlayers();
+      updateTotalPoints();
+    } else {
+      alert("No players to delete!");
+    }
+  });
+
+  // Add event listener to the undo button
+  document.getElementById("undoButton").addEventListener("click", function() {
+    var table = document.getElementById("pointsTable");
+    if (lastAction === "add") {
+      if (table.rows.length > 1) {
+        table.deleteRow(-1); // Undo the adding of the last player
+        savePlayers();
+        updateTotalPoints();
+      } else {
+        alert("No action to undo!");
+      }
+    } else if (lastAction === "delete") {
+      if (lastDeletedRow) {
+        table.insertAdjacentHTML('beforeend', lastDeletedRow); // Add the last deleted row back to the table
+        lastDeletedRow = null; // Reset the last deleted row
+        savePlayers();
+        updateTotalPoints();
+      } else {
+        alert("No action to undo!");
+      }
+    }
+  });
+
+  // Add event listener to the redo button
+  document.getElementById("redoButton").addEventListener("click", function() {
+    var table = document.getElementById("pointsTable");
+    if (lastAction === "delete" && lastDeletedRow) {
+      table.insertAdjacentHTML('beforeend', lastDeletedRow); // Add the last deleted row back to the table
+      lastDeletedRow = null; // Reset the last deleted row
+      savePlayers();
+      updateTotalPoints();
+    } else if (lastAction === "add" && lastAddedRow) {
+      table.insertAdjacentHTML('beforeend', lastAddedRow); // Add the last added row back to the table
+      savePlayers();
+      updateTotalPoints();
+    } else {
+      alert("No action to redo!");
+    }
+  });
+</script>
+
+</body>
+</html>
